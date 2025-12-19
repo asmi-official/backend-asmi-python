@@ -1,24 +1,22 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+
 from app.models.user import User
 from app.utils.security import hash_password, verify_password
 from app.utils.jwt import create_access_token
+from app.utils.db_validators import auto_validate
 from app.config_env import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.exceptions import UnauthorizedException
 
 
 def register_user(data, db: Session):
-    if db.query(User).filter(User.email == data.email).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered"
-        )
-
-    if db.query(User).filter(User.username == data.username).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Username already registered"
-        )
+    # Auto-validate unique fields (email, username) berdasarkan model
+    auto_validate(
+        model=User,
+        data=data.model_dump(),
+        db=db,
+        validate_required=False  # Pydantic sudah handle required validation
+    )
     user = User(
         name=data.name,
         email=data.email,
@@ -43,6 +41,7 @@ def register_user(data, db: Session):
 
 
 def login_user(data, db: Session):
+    # Cari user berdasarkan username atau email
     user = db.query(User).filter(
         or_(
             User.username == data.identifier,
@@ -50,16 +49,18 @@ def login_user(data, db: Session):
         )
     ).first()
 
+    # User tidak ditemukan
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+        raise UnauthorizedException(
+            message="Invalid credentials",
+            details={"reason": "User not found"}
         )
 
+    # Password salah
     if not verify_password(data.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+        raise UnauthorizedException(
+            message="Invalid credentials",
+            details={"reason": "Invalid password"}
         )
 
     token = create_access_token(

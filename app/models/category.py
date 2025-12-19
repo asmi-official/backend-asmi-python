@@ -9,3 +9,8 @@ class Category(Base):
     name = Column(String, unique=True, nullable=False)
     description = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(String, nullable=True)  # Email user yang membuat
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_by = Column(String, nullable=True)  # Email user yang update
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(String, nullable=True)  # Email user yang menghapus

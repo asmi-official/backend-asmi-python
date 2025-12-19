@@ -4,10 +4,7 @@ from app.schemas.auth_schema import RegisterSchema, LoginSchema
 from app.controller.auth_controller import register_user, login_user
 from app.config.deps import get_db
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["Auth"]
-)
+router = APIRouter()
 
 @router.post("/register")
 def register(data: RegisterSchema, db: Session = Depends(get_db)):

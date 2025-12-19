@@ -1,150 +1,216 @@
 # ASMI Dashboard API
 
-Backend API untuk **Dashboard ASMI** menggunakan **FastAPI**. Project ini disusun dengan pendekatan **MVP (Minimum Viable Product)**: struktur sederhana, jelas, dan mudah dikembangkan ke tahap production.
-
----
+Backend API untuk ASMI Dashboard menggunakan FastAPI dan PostgreSQL.
 
 ## 🚀 Tech Stack
 
-- Python 3.9+
-- FastAPI
-- Uvicorn
-
----
+- **Framework**: FastAPI
+- **Database**: PostgreSQL
+- **ORM**: SQLAlchemy
+- **Authentication**: JWT (JSON Web Token)
+- **Password Hashing**: Passlib with bcrypt
+- **Python Version**: 3.13+
 
 ## 📁 Struktur Project
 
-```text
-project/
-├── .venv/                # virtual environment
+```
+backend-asmi-python/
 ├── app/
-│   ├── main.py           # entry point aplikasi
-│   ├── routes/           # semua endpoint API
-│   │   └── dashboard.py
-│   ├── config/             # config & core utilities
-│   │   └── config.py
-│   └── __init__.py
-├── .env                  # environment variables
-├── requirements.txt
-└── README.md
+│   ├── config/              # Konfigurasi aplikasi
+│   │   ├── config.py        # Environment variables & database URL
+│   │   ├── database.py      # Database engine & session
+│   │   ├── deps.py          # Dependencies (get_db)
+│   │   └── logging_config.py # Setup logging
+│   │
+│   ├── core/                # Core functionality
+│   │   └── events.py        # Startup & shutdown events
+│   │
+│   ├── middleware/          # Middleware
+│   │   ├── cors_middleware.py    # CORS configuration
+│   │   └── logging_middleware.py # Request logging
+│   │
+│   ├── models/              # Database models (SQLAlchemy)
+│   │   ├── user.py          # User model
+│   │   └── category.py      # Category model
+│   │
+│   ├── schemas/             # Pydantic schemas (validation)
+│   │   ├── auth_schema.py   # Auth request/response schemas
+│   │   └── category_schema.py # Category schemas
+│   │
+│   ├── controller/          # Business logic
+│   │   ├── auth_controller.py     # Auth logic (register, login)
+│   │   └── category_controller.py # Category CRUD logic
+│   │
+│   ├── routes/              # API routes
+│   │   ├── auth.py          # Auth endpoints
+│   │   └── category.py      # Category endpoints
+│   │
+│   ├── utils/               # Utility functions
+│   │   ├── jwt.py           # JWT token utilities
+│   │   └── security.py      # Password hashing utilities
+│   │
+│   └── main.py              # Application entry point
+│
+├── logs/                    # Log files (auto-generated)
+│   ├── app.log             # All logs
+│   └── error.log           # Error logs only
+│
+├── .env                     # Environment variables
+├── .env.example            # Environment variables template
+├── .gitignore              # Git ignore rules
+├── requirements.txt        # Python dependencies
+└── README.md               # This file
 ```
 
----
+## ⚙️ Setup & Installation
 
-## ⚙️ Setup Environment
+### 1. Clone Repository
+```bash
+git clone <repository-url>
+cd backend-asmi-python
+```
 
-### 1️⃣ Buat Virtual Environment
-
+### 2. Create Virtual Environment
 ```bash
 python -m venv .venv
-```
 
-Aktifkan:
+# Activate virtual environment
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
 
-- Windows
+# Windows (Git Bash)
+source .venv/Scripts/activate
 
-```bash
-.venv\Scripts\activate
-```
-
-- Mac / Linux
-
-```bash
+# Linux/Mac
 source .venv/bin/activate
 ```
 
----
-
-### 2️⃣ Install Dependency
-
+### 3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-Isi `requirements.txt`:
+### 4. Setup Environment Variables
+```bash
+# Copy .env.example to .env
+cp .env.example .env
 
-```text
-fastapi
-uvicorn
-python-dotenv
+# Edit .env dengan konfigurasi Anda
 ```
 
----
+**.env** file:
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=asmi_db
+DB_USER=postgres
+DB_PASSWORD=your_password
 
-## ▶️ Menjalankan Aplikasi
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60000
+```
 
+### 5. Setup PostgreSQL Database
+```bash
+# Login ke PostgreSQL
+psql -U postgres
+
+# Buat database
+CREATE DATABASE asmi_db;
+
+# Exit
+\q
+```
+
+### 6. Run Application
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Akses:
+Server akan berjalan di: `http://127.0.0.1:8000`
 
-- API Base: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+## 📚 API Documentation
 
----
+Setelah aplikasi berjalan, akses dokumentasi API di:
 
-## 📌 Endpoint Dasar
+- **Swagger UI**: http://127.0.0.1:8000/docs
+- **ReDoc**: http://127.0.0.1:8000/redoc
 
-### Health Check Dashboard
+## 🔐 API Endpoints
 
-```http
-GET /dashboard/health
+### Health Check
+- `GET /` - Root endpoint & API info
+- `GET /health` - Health check
+- `GET /health/db` - Database health check
+
+### Authentication (`/api/auth`)
+- `POST /api/auth/register` - Register user baru
+- `POST /api/auth/login` - Login user
+
+### Categories (`/api/categories`)
+- `POST /api/categories/` - Create category
+- `GET /api/categories/` - Get all categories
+- `PUT /api/categories/{id}` - Update category
+- `DELETE /api/categories/{id}` - Delete category
+
+## 📝 Logging
+
+Aplikasi menggunakan sistem logging dengan 3 handlers:
+
+### 1. Console Handler
+- Tampil di terminal saat aplikasi running
+- Level: INFO
+
+### 2. File Handler - `logs/app.log`
+- Semua log (INFO, WARNING, ERROR)
+- Max size: 10MB
+- Auto rotate: 5 backup files
+
+### 3. Error Handler - `logs/error.log`
+- Hanya ERROR
+- Max size: 10MB
+- Auto rotate: 5 backup files
+
+### Format Log
+```
+2025-12-20 10:30:45 - __main__ - INFO - 📥 GET /api/categories - Client: 127.0.0.1
+2025-12-20 10:30:45 - __main__ - INFO - ✅ GET /api/categories - Status: 200 - Duration: 0.003s
 ```
 
-Response:
+## 🔒 Security Features
 
-```json
-{
-  "service": "ASMI Dashboard",
-  "status": "ok"
-}
-```
+### Password Handling
+- Passwords di-hash menggunakan bcrypt
+- Tidak pernah menyimpan plain text password
 
----
+### Database Connection
+- Password dengan karakter khusus (@, !, #, dll) di-encode otomatis
+- Connection pool dengan `pool_pre_ping=True`
 
-## 🔧 Konfigurasi Environment
+### Error Handling
+- Pesan error yang jelas dan informatif
+- Error handling untuk berbagai kasus:
+  - Password salah
+  - Database tidak ditemukan
+  - PostgreSQL tidak running
+  - User tidak ada
 
-Buat file `.env` di root project:
+## 🛠️ Development
 
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/db_name
-```
+### Code Structure
+- **Separation of Concerns**: Config, middleware, routes, controllers terpisah
+- **Clean Architecture**: Struktur yang rapi dan mudah di-maintain
+- **Type Hints**: Menggunakan Pydantic untuk validasi data
+- **Modern FastAPI**: Menggunakan lifespan events (bukan deprecated on_event)
 
-Digunakan di:
+### Best Practices
+- Environment variables untuk konfigurasi
+- Logging untuk tracking requests
+- CORS middleware untuk security
+- Database connection pooling
+- Error handling yang comprehensive
 
-```python
-app/core/config.py
-```
-
----
-
-## 🧠 Prinsip Arsitektur
-
-- `main.py` → wiring aplikasi
-- `routes/` → request & response API
-- `core/` → config, database, security
-- MVP friendly, no over-engineering
-
----
-
-## 🔜 Rencana Pengembangan
-
-- Statistik dashboard
-- Summary penilaian
-- Progress harian & total
-- Auth (JWT)
-- Database integration
-- Docker support
-
----
-
-## 👤 Target Penggunaan
-
-- Internal Dashboard ASMI
-- Backend untuk Frontend (Next.js / React)
-
----
-
-## 📄 Lisensi
+## 📄 License
 
 Internal Project – ASMI
