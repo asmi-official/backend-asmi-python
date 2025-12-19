@@ -1,35 +1,80 @@
+# ========================================
+# Docker Compose for DEVELOPMENT
+# ========================================
+# Usage: docker-compose up -d
+#
+# Features:
+# - PostgreSQL database in Docker with persistent volume
+# - Hot reload untuk code changes
+# - Auto migration dengan Alembic
+# - Database accessible di localhost:5432
+# ========================================
+
 services:
   backend:
     build: .
-    container_name: asmi_backend
+    container_name: asmi_backend_dev
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
+      # Override DB_HOST untuk connect ke PostgreSQL container
       DB_HOST: db
+      # Development mode
+      ENVIRONMENT: development
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
+      # Mount code untuk hot reload
       - .:/app
+      # Exclude python cache
+      - /app/__pycache__
+      - /app/.venv
     command: >
       sh -c "
+      echo '🔄 Running database migrations...' &&
       alembic upgrade head &&
+      echo '✅ Migrations completed!' &&
+      echo '🚀 Starting FastAPI server...' &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
+    restart: unless-stopped
+    networks:
+      - asmi_network
 
   db:
-    image: postgres:16
-    container_name: asmi_postgres
-    restart: always
+    image: postgres:16-alpine
+    container_name: asmi_postgres_dev
+    restart: unless-stopped
     environment:
       POSTGRES_DB: asmi_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
     volumes:
+      # Named volume untuk data persistence
       - postgres_data:/var/lib/postgresql/data
+      # Backup folder (opsional)
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asmi_network
 
 volumes:
   postgres_data:
+    driver: local
+    # Data akan tersimpan di Docker volume
+    # Lokasi: /var/lib/docker/volumes/backend-asmi-python_postgres_data/_data
+
+networks:
+  asmi_network:
+    driver: bridge

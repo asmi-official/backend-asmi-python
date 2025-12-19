@@ -1,0 +1,50 @@
+# ========================================
+# Docker Compose for PRODUCTION
+# ========================================
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+#
+# Features:
+# - Backend di Docker
+# - Database EXTERNAL (install PostgreSQL di server)
+# - Tidak ada hot reload (optimized)
+# - Production-ready configuration
+# ========================================
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: asmi_backend_prod
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.production  # File .env terpisah untuk production
+    environment:
+      ENVIRONMENT: production
+      # DB_HOST akan diambil dari .env.production (external database)
+    volumes:
+      # Hanya mount logs untuk monitoring
+      - ./logs:/app/logs
+    command: >
+      sh -c "
+      echo '🔄 Running database migrations...' &&
+      alembic upgrade head &&
+      echo '✅ Migrations completed!' &&
+      echo '🚀 Starting production server...' &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --no-access-log
+      "
+    restart: always
+    networks:
+      - asmi_network
+    # Healthcheck untuk monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  asmi_network:
+    driver: bridge

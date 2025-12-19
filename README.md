@@ -211,6 +211,48 @@ Aplikasi menggunakan sistem logging dengan 3 handlers:
 - Database connection pooling
 - Error handling yang comprehensive
 
+## 🐳 Docker & Production
+
+### Development dengan Docker
+```bash
+# Start services (Backend + PostgreSQL)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+Lihat [DOCKER_SETUP.md](DOCKER_SETUP.md) untuk dokumentasi lengkap Docker.
+
+### Production Deployment
+
+**Quick Deploy:**
+```bash
+# Install dependencies
+curl -fsSL https://get.docker.com | sh
+sudo apt install postgresql
+
+# Setup database
+sudo -u postgres psql -c "CREATE DATABASE asmi_db;"
+
+# Deploy app
+git clone your-repo
+cd backend-asmi-python
+cp .env.production.example .env.production
+# Edit .env.production
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+**Tutorial Lengkap:**
+- 📖 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Step-by-step deployment guide
+- ⚡ [QUICK_DEPLOY.md](QUICK_DEPLOY.md) - Quick reference cheat sheet
+- 🐳 [DOCKER_SETUP.md](DOCKER_SETUP.md) - Docker documentation
+
+---
+
 ## 📄 License
 
 Internal Project – ASMI
