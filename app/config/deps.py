@@ -1,4 +1,5 @@
-from fastapi import Depends, Header
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -8,6 +9,12 @@ from app.config.database import SessionLocal
 from app.config_env import SECRET_KEY, ALGORITHM
 from app.core.exceptions import UnauthorizedException
 from app.models.user import User
+
+# Security scheme untuk Swagger UI
+security = HTTPBearer(
+    scheme_name="Bearer",
+    description="Enter your JWT token from /api/v1/auth/login"
+)
 
 
 class CurrentUser(BaseModel):
@@ -27,11 +34,14 @@ def get_db():
 
 
 def get_current_user(
-    authorization: str = Header(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> CurrentUser:
     """
     Dependency untuk mendapatkan informasi user dari JWT token
+
+    Menggunakan HTTPBearer untuk integrasi dengan Swagger UI.
+    Token akan otomatis diambil dari header Authorization: Bearer <token>
 
     Returns:
         CurrentUser: Object berisi user_id, email, username, role
@@ -39,25 +49,7 @@ def get_current_user(
     Raises:
         UnauthorizedException: Jika token invalid atau user tidak ditemukan
     """
-    if not authorization:
-        raise UnauthorizedException(
-            message="Missing authorization header",
-            details={"reason": "Authorization header is required"}
-        )
-
-    # Extract token dari "Bearer <token>"
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise UnauthorizedException(
-                message="Invalid authentication scheme",
-                details={"reason": "Must use Bearer token"}
-            )
-    except ValueError:
-        raise UnauthorizedException(
-            message="Invalid authorization header format",
-            details={"reason": "Format must be 'Bearer <token>'"}
-        )
+    token = credentials.credentials
 
     # Decode JWT token
     try:

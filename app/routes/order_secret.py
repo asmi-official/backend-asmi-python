@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.config.deps import get_db, get_current_user, CurrentUser
 from app.schemas.order_secret_schema import (
@@ -16,27 +16,73 @@ from app.controller.order_secret_controller import (
 router = APIRouter()
 
 
-@router.post("/")
+@router.post("/", summary="Create order secret")
 def create(
     data: OrderSecretCreateSchema,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Membuat order secret baru.
-    Requires authentication - created_by akan diisi otomatis dari email user yang login.
+    Membuat order secret baru berdasarkan order ID dari marketplace.
+
+    **Authentication required**: Bearer token dari login
+
+    **Request Body**:
+    - `order_secret_id`: ID unik order dari marketplace (required, unique)
+    - `category_marketplace_id`: UUID category marketplace yang sudah ada (required)
+
+    **Validations**:
+    - `order_secret_id` harus unique
+    - `category_marketplace_id` harus exist dan tidak terhapus
+
+    **Auto-filled**:
+    - `created_by`: Email dari user yang login
+    - `created_at`: Timestamp otomatis
+    - Fields lain (message, emotional, from_name) akan null sampai di-update
+
+    **Flow**:
+    1. Sistem menerima order_secret_id dari marketplace
+    2. Create record dengan status kosong
+    3. Customer nanti mengisi message, emotional, from_name via update endpoint
     """
     return create_order_secret(data, db, current_user)
 
 
 @router.get("/")
 def list_all(
-    search: str = None,
-    filters: str = None,
-    sort_by: str = None,
-    sort_order: str = "desc",
-    page: int = None,
-    per_page: int = None,
+    search: str = Query(
+        None,
+        description="Global search di semua string fields (order_secret_id, message, emotional, from_name, created_by, updated_by, category name, category description)",
+        example="TikTok"
+    ),
+    filters: str = Query(
+        None,
+        description='Dynamic filtering - JSON array format: [{"key": "field_name", "operator": "operator_type", "value": "value"}]. Operators: equal, not_equal, like, contains, starts_with, ends_with, gt, gte, lt, lte, in, not_in, is_null, is_not_null',
+        example='[{"key":"emotional","operator":"like","value":"Senang"}]'
+    ),
+    sort_by: str = Query(
+        None,
+        description="Field name untuk sorting (support main table dan joined table dengan dot notation). Default: created_at",
+        example="created_at"
+    ),
+    sort_order: str = Query(
+        "desc",
+        description="Sort order: asc atau desc",
+        example="desc"
+    ),
+    page: int = Query(
+        None,
+        description="Page number (1-based). Harus dikombinasikan dengan per_page untuk mendapat pagination meta",
+        example=1,
+        ge=1
+    ),
+    per_page: int = Query(
+        None,
+        description="Items per page. Harus dikombinasikan dengan page untuk mendapat pagination meta",
+        example=10,
+        ge=1,
+        le=100
+    ),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -111,37 +157,72 @@ def list_all(
     return get_order_secrets(db, search, parsed_filters, sort_by, sort_order, page, per_page)
 
 
-@router.get("/{order_secret_id}")
+@router.get("/{order_secret_id}", summary="Get order secret by ID")
 def get_by_id(
     order_secret_id: str,
     db: Session = Depends(get_db)
 ):
     """
-    Mengambil detail order secret berdasarkan ID.
+    Mengambil detail order secret berdasarkan order_secret_id (ID dari marketplace).
+
+    **No authentication required** - Endpoint ini public untuk customer
+
+    **Path Parameter**:
+    - `order_secret_id`: ID order dari marketplace (contoh: TBHJG65435O)
+
+    **Use Case**: Customer scan QR code yang berisi order_secret_id untuk lihat/isi pesan secret
     """
     return get_order_secret_by_id(order_secret_id, db)
 
 
-@router.put("/{order_secret_id}")
+@router.put("/{order_secret_id}", summary="Update order secret (Customer fills message)")
 def update(
     order_secret_id: str,
     data: OrderSecretUpdateSchema,
     db: Session = Depends(get_db)
 ):
     """
-    Update order secret.
+    Update order secret - digunakan oleh customer untuk mengisi pesan secret.
+
+    **No authentication required** - Endpoint ini public untuk customer
+
+    **Path Parameter**:
+    - `order_secret_id`: ID order dari marketplace (contoh: TBHJG65435O)
+
+    **Request Body** (semua field optional):
+    - `message`: Pesan dari customer kepada penerima
+    - `emotional`: Status emosional (contoh: Senang, Bahagia, Haru)
+    - `from_name`: Nama pengirim pesan
+
+    **Auto-filled**:
+    - `updated_by`: "Customizer Service" (karena diisi oleh customer, bukan admin)
+    - `updated_at`: Timestamp otomatis
+
+    **Use Case**: Customer mengisi form pesan secret setelah scan QR code
     """
     return update_order_secret(order_secret_id, data, db)
 
 
-@router.delete("/{order_secret_id}")
+@router.delete("/{order_secret_id}", summary="Delete order secret")
 def delete(
     order_secret_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Soft delete order secret.
-    Requires authentication - deleted_by akan diisi otomatis dari email user yang login.
+    Soft delete order secret (data tidak benar-benar dihapus).
+
+    **Authentication required**: Bearer token dari login
+
+    **Path Parameter**:
+    - `order_secret_id`: ID order dari marketplace (contoh: TBHJG65435O)
+
+    **Auto-filled**:
+    - `deleted_by`: Email dari user yang login
+    - `deleted_at`: Timestamp otomatis
+
+    **Note**: Data hanya di-mark sebagai deleted, tidak benar-benar dihapus dari database
+
+    **Use Case**: Admin menghapus order yang bermasalah atau dibatalkan
     """
     return delete_order_secret(order_secret_id, db, current_user)

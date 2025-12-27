@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.config.deps import get_db, get_current_user, CurrentUser
 from app.schemas.category_marketplace_schema import (
@@ -16,24 +16,48 @@ from app.controller.category_marketplace_controller import (
 router = APIRouter()
 
 
-@router.post("/")
+@router.post("/", summary="Create category marketplace")
 def create(
     data: CategoryMarketplaceCreateSchema,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Membuat category marketplace baru (tiktok, shopee, dll).
-    Requires authentication.
+    Membuat category marketplace baru (TikTok, Shopee, Tokopedia, dll).
+
+    **Authentication required**: Bearer token dari login
+
+    **Validations**:
+    - `name` harus unique (tidak boleh duplikat dengan data yang belum dihapus)
+    - `description` optional
+
+    **Auto-filled**:
+    - `created_by`: Email dari user yang login
+    - `created_at`: Timestamp otomatis
     """
     return create_category_marketplace(data, db, current_user)
 
 
 @router.get("/")
 def list_all(
-    search: str = None,
-    page: int = None,
-    per_page: int = None,
+    search: str = Query(
+        None,
+        description="Global search di semua string fields (name, description, created_by, updated_by)",
+        example="tiktok"
+    ),
+    page: int = Query(
+        None,
+        description="Page number (1-based). Harus dikombinasikan dengan per_page untuk mendapat pagination meta",
+        example=1,
+        ge=1
+    ),
+    per_page: int = Query(
+        None,
+        description="Items per page. Harus dikombinasikan dengan page untuk mendapat pagination meta",
+        example=10,
+        ge=1,
+        le=100
+    ),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
@@ -68,20 +92,24 @@ def list_all(
     return get_category_marketplaces(db, search, page, per_page)
 
 
-@router.get("/{category_marketplace_id}")
+@router.get("/{category_marketplace_id}", summary="Get category marketplace by ID")
 def get_by_id(
     category_marketplace_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Mengambil detail category marketplace berdasarkan ID.
-    Requires authentication.
+    Mengambil detail category marketplace berdasarkan UUID ID.
+
+    **Authentication required**: Bearer token dari login
+
+    **Path Parameter**:
+    - `category_marketplace_id`: UUID dari category marketplace
     """
     return get_category_marketplace_by_id(category_marketplace_id, db)
 
 
-@router.put("/{category_marketplace_id}")
+@router.put("/{category_marketplace_id}", summary="Update category marketplace")
 def update(
     category_marketplace_id: str,
     data: CategoryMarketplaceUpdateSchema,
@@ -89,20 +117,42 @@ def update(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Update category marketplace.
-    Requires authentication.
+    Update category marketplace (nama atau deskripsi).
+
+    **Authentication required**: Bearer token dari login
+
+    **Path Parameter**:
+    - `category_marketplace_id`: UUID dari category marketplace
+
+    **Request Body** (semua field optional):
+    - `name`: Nama marketplace baru (harus unique)
+    - `description`: Deskripsi baru
+
+    **Auto-filled**:
+    - `updated_by`: Email dari user yang login
+    - `updated_at`: Timestamp otomatis
     """
     return update_category_marketplace(category_marketplace_id, data, db, current_user)
 
 
-@router.delete("/{category_marketplace_id}")
+@router.delete("/{category_marketplace_id}", summary="Delete category marketplace")
 def delete(
     category_marketplace_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Soft delete category marketplace.
-    Requires authentication.
+    Soft delete category marketplace (data tidak benar-benar dihapus).
+
+    **Authentication required**: Bearer token dari login
+
+    **Path Parameter**:
+    - `category_marketplace_id`: UUID dari category marketplace
+
+    **Auto-filled**:
+    - `deleted_by`: Email dari user yang login
+    - `deleted_at`: Timestamp otomatis
+
+    **Note**: Data hanya di-mark sebagai deleted, tidak benar-benar dihapus dari database
     """
     return delete_category_marketplace(category_marketplace_id, db, current_user)

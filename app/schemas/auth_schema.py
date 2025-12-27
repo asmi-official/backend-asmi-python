@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
@@ -10,11 +10,48 @@ class RoleEnum(str, Enum):
 
 
 class RegisterSchema(BaseModel):
-    name: str
-    email: EmailStr
-    username: str
-    password: str
-    role: RoleEnum
+    """
+    Schema untuk registrasi user baru
+    """
+    name: str = Field(
+        ...,
+        description="Nama lengkap user",
+        examples=["John Doe"]
+    )
+    email: EmailStr = Field(
+        ...,
+        description="Email user (harus valid dan unique)",
+        examples=["john.doe@example.com"]
+    )
+    username: str = Field(
+        ...,
+        description="Username (unique)",
+        examples=["johndoe"]
+    )
+    password: str = Field(
+        ...,
+        description="Password (minimal 6 karakter, maksimal 72 karakter)",
+        examples=["password123"]
+    )
+    role: RoleEnum = Field(
+        ...,
+        description="Role user: admin atau karyawan",
+        examples=["karyawan"]
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "John Doe",
+                    "email": "john.doe@example.com",
+                    "username": "johndoe",
+                    "password": "password123",
+                    "role": "karyawan"
+                }
+            ]
+        }
+    )
 
     @field_validator("password")
     @classmethod
@@ -28,8 +65,32 @@ class RegisterSchema(BaseModel):
 
 
 class LoginSchema(BaseModel):
-    identifier: str
-    password: str
+    """
+    Schema untuk login user
+
+    Identifier bisa berupa email atau username
+    """
+    identifier: str = Field(
+        ...,
+        description="Email atau username untuk login",
+        examples=["johndoe"]
+    )
+    password: str = Field(
+        ...,
+        description="Password user",
+        examples=["password123"]
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "identifier": "johndoe",
+                    "password": "password123"
+                }
+            ]
+        }
+    )
 
 
 # Response Schemas

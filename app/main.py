@@ -44,7 +44,10 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    swagger_ui_parameters={
+        "persistAuthorization": True  # Swagger UI akan menyimpan token setelah authorize
+    }
 )
 
 # ===============================
