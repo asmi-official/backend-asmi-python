@@ -7,6 +7,7 @@ from app.utils.jwt import create_access_token
 from app.utils.db_validators import auto_validate
 from app.config_env import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.exceptions import UnauthorizedException
+from app.core.response import SuccessResponse
 
 
 def register_user(data, db: Session):
@@ -29,15 +30,10 @@ def register_user(data, db: Session):
     db.commit()
     db.refresh(user)
 
-    return {"message": "Register success",
-            "data": {
-                "id":user.id,
-                "name":user.name,
-                "username":user.username,
-                "email":user.email,
-                "role": user.role.value
-
-            }}
+    return SuccessResponse.created(
+        message="User registered successfully",
+        data=user
+    )
 
 
 def login_user(data, db: Session):
@@ -71,15 +67,11 @@ def login_user(data, db: Session):
         expires_minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    return {
-        "message": "Login success",
-        "data": {
-            "id": user.id,
-            "name": user.name,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role.value
-        },
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    return SuccessResponse.success(
+        message="Login successful",
+        data={
+            "user": user,
+            "access_token": token,
+            "token_type": "bearer"
+        }
+    )

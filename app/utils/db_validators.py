@@ -48,6 +48,10 @@ def validate_unique_fields(
                 getattr(model, column.name) == value
             )
 
+            # Exclude soft deleted records (jika model punya deleted_at)
+            if hasattr(model, 'deleted_at'):
+                query = query.filter(model.deleted_at.is_(None))
+
             # Exclude ID tertentu (untuk update)
             if exclude_id:
                 query = query.filter(model.id != exclude_id)

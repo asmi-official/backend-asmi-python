@@ -1,16 +1,20 @@
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
-class CategoryCreateSchema(BaseModel):
+
+class CategoryMarketplaceCreateSchema(BaseModel):
     name: str
     description: str | None = None
 
-class CategoryUpdateSchema(BaseModel):
+
+class CategoryMarketplaceUpdateSchema(BaseModel):
     name: str | None = None
     description: str | None = None
 
-class CategoryResponseSchema(BaseModel):
-    id: int
+
+class CategoryMarketplaceResponseSchema(BaseModel):
+    id: UUID
     name: str
     description: str | None
     created_at: datetime

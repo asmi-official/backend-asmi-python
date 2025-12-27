@@ -2,6 +2,7 @@ from fastapi import Depends, Header
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from uuid import UUID
 
 from app.config.database import SessionLocal
 from app.config_env import SECRET_KEY, ALGORITHM
@@ -11,7 +12,7 @@ from app.models.user import User
 
 class CurrentUser(BaseModel):
     """Model untuk menyimpan informasi user yang sedang login"""
-    user_id: int
+    user_id: UUID
     email: str
     username: str
     role: str
@@ -76,7 +77,7 @@ def get_current_user(
         )
 
     # Get user dari database
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:
         raise UnauthorizedException(

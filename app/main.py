@@ -10,7 +10,7 @@ from app.core.events import startup_event, shutdown_event
 from app.core.exception_handlers import register_exception_handlers
 from app.middleware.cors_middleware import setup_cors
 from app.middleware.logging_middleware import log_requests_middleware
-from app.routes import auth, category
+from app.routes import auth, category_marketplace, order_secret
 
 # ===============================
 # Setup Logging
@@ -64,8 +64,9 @@ setup_cors(app)
 # ===============================
 # Include Routers
 # ===============================
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(category.router, prefix="/api/categories", tags=["Categories"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(category_marketplace.router, prefix="/api/v1/category-marketplaces", tags=["Category Marketplaces"])
+app.include_router(order_secret.router, prefix="/api/v1/order-secrets", tags=["Order Secrets"])
 
 # ===============================
 # Health Check Endpoints

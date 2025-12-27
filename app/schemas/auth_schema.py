@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
+from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 class RoleEnum(str, Enum):
@@ -28,3 +30,16 @@ class RegisterSchema(BaseModel):
 class LoginSchema(BaseModel):
     identifier: str
     password: str
+
+
+# Response Schemas
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    email: EmailStr
+    username: str
+    role: RoleEnum
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
