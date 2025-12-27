@@ -32,17 +32,40 @@ def create(
 @router.get("/")
 def list_all(
     search: str = None,
+    page: int = None,
+    per_page: int = None,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Mengambil semua category marketplaces yang tidak dihapus.
-    Optional query parameter 'search' untuk mencari berdasarkan name (case-insensitive).
-    Requires authentication.
+    Mengambil semua category marketplaces dengan search dan pagination.
 
-    Example: /api/v1/category-marketplaces?search=tiktok
+    Query Parameters:
+    - search: Global search (name, description, dll - otomatis semua string fields)
+    - page: Page number (1-based, optional)
+    - per_page: Items per page (optional)
+
+    Response with pagination:
+    {
+        "success": true,
+        "message": "Category marketplaces retrieved successfully",
+        "data": [...],
+        "meta": {
+            "total": 50,
+            "page": 1,
+            "per_page": 10,
+            "total_pages": 5,
+            "has_next": true,
+            "has_prev": false
+        }
+    }
+
+    Examples:
+    - /api/v1/category-marketplaces?search=tiktok
+    - /api/v1/category-marketplaces?page=1&per_page=10
+    - /api/v1/category-marketplaces?search=shopee&page=2&per_page=20
     """
-    return get_category_marketplaces(db, search)
+    return get_category_marketplaces(db, search, page, per_page)
 
 
 @router.get("/{category_marketplace_id}")

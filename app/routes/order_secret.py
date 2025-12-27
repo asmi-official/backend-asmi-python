@@ -35,11 +35,13 @@ def list_all(
     filters: str = None,
     sort_by: str = None,
     sort_order: str = "desc",
+    page: int = None,
+    per_page: int = None,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Mengambil semua order secrets dengan filtering dan sorting dinamis.
+    Mengambil semua order secrets dengan filtering, sorting, dan pagination dinamis.
 
     Query Parameters:
     - search: Global search (order_secret_id, created_by, category name)
@@ -66,9 +68,27 @@ def list_all(
                Bisa gunakan field dari OrderSecret atau CategoryMarketplace
                (e.g., "category_marketplace.name" atau "CategoryMarketplace.name")
     - sort_order: "asc" atau "desc" (default: desc)
+    - page: Page number (1-based, optional)
+    - per_page: Items per page (optional)
+
+    Response with pagination:
+    {
+        "success": true,
+        "message": "Order secrets retrieved successfully",
+        "data": [...],
+        "meta": {
+            "total": 100,
+            "page": 1,
+            "per_page": 10,
+            "total_pages": 10,
+            "has_next": true,
+            "has_prev": false
+        }
+    }
 
     Examples:
     - ?search=TikTok
+    - ?page=1&per_page=10
     - ?filters=[{"key":"order_secret_id","operator":"equal","value":"TBHJG65435O"}]
     - ?filters=[{"key":"emotional","operator":"like","value":"Senang"}]
     - ?filters=[{"key":"name","operator":"equal","value":"TikTok"}]  (otomatis dari CategoryMarketplace)
@@ -76,6 +96,7 @@ def list_all(
     - ?sort_by=order_secret_id&sort_order=asc
     - ?sort_by=name&sort_order=asc  (otomatis dari CategoryMarketplace)
     - ?filters=[{"key":"created_at","operator":"gte","value":"2025-12-27"}]&sort_by=created_at&sort_order=desc
+    - ?page=2&per_page=20&search=TikTok&sort_by=created_at&sort_order=desc
     """
     import json
 
@@ -87,7 +108,7 @@ def list_all(
         except json.JSONDecodeError:
             parsed_filters = None
 
-    return get_order_secrets(db, search, parsed_filters, sort_by, sort_order)
+    return get_order_secrets(db, search, parsed_filters, sort_by, sort_order, page, per_page)
 
 
 @router.get("/{order_secret_id}")

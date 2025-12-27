@@ -1,11 +1,35 @@
 """
 Dynamic Query Builder Utility
-Provides reusable filtering, searching, and sorting functionality with JOIN support
+Provides reusable filtering, searching, sorting, and pagination functionality with JOIN support
 """
 
 from typing import Type, Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Query, Session, joinedload
 from sqlalchemy import or_, desc, asc
+
+
+def calculate_pagination_meta(total: int, page: int, per_page: int) -> dict:
+    """
+    Calculate pagination metadata
+
+    Args:
+        total: Total number of items
+        page: Current page number (1-based)
+        per_page: Items per page
+
+    Returns:
+        Dictionary with pagination metadata
+    """
+    total_pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+
+    return {
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1
+    }
 
 
 def apply_filters(
@@ -155,10 +179,12 @@ def build_dynamic_query(
     default_sort_field: str = "created_at",
     include_deleted: bool = False,
     joins: Optional[List[Dict[str, Any]]] = None,
-    auto_search_all_fields: bool = False
+    auto_search_all_fields: bool = False,
+    page: Optional[int] = None,
+    per_page: Optional[int] = None
 ) -> Query:
     """
-    Build a complete query with filtering, searching, sorting, and JOIN support
+    Build a complete query with filtering, searching, sorting, pagination, and JOIN support
 
     Args:
         db: Database session
@@ -181,9 +207,11 @@ def build_dynamic_query(
                 }
             ]
         auto_search_all_fields: If True, automatically search all string/text fields from model and joins
+        page: Page number (1-based, optional)
+        per_page: Items per page (optional, default: no pagination)
 
     Returns:
-        Configured SQLAlchemy query ready to execute
+        Configured SQLAlchemy query ready to execute (call .all() for all results, or use pagination)
 
     Example without JOIN:
         query = build_dynamic_query(
@@ -285,6 +313,11 @@ def build_dynamic_query(
 
     # Apply sorting (with JOIN support)
     query = apply_sorting_with_joins(query, model, sort_by, sort_order, default_sort_field, joined_models, relationship_to_model)
+
+    # Apply pagination if provided
+    if page is not None and per_page is not None:
+        offset = (page - 1) * per_page
+        query = query.limit(per_page).offset(offset)
 
     return query
 
