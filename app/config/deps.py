@@ -10,7 +10,7 @@ from app.config_env import SECRET_KEY, ALGORITHM
 from app.core.exceptions import UnauthorizedException
 from app.models.user import User
 
-# Security scheme untuk Swagger UI
+# Security scheme for Swagger UI
 security = HTTPBearer(
     scheme_name="Bearer",
     description="Enter your JWT token from /api/v1/auth/login"
@@ -18,7 +18,7 @@ security = HTTPBearer(
 
 
 class CurrentUser(BaseModel):
-    """Model untuk menyimpan informasi user yang sedang login"""
+    """Model for storing current logged-in user information"""
     user_id: UUID
     email: str
     username: str
@@ -38,25 +38,30 @@ def get_current_user(
     db: Session = Depends(get_db)
 ) -> CurrentUser:
     """
-    Dependency untuk mendapatkan informasi user dari JWT token
+    Dependency to retrieve user information from JWT token
 
-    Menggunakan HTTPBearer untuk integrasi dengan Swagger UI.
-    Token akan otomatis diambil dari header Authorization: Bearer <token>
+    Uses HTTPBearer for integration with Swagger UI.
+    Token is automatically extracted from Authorization header: Bearer <token>
 
     Returns:
-        CurrentUser: Object berisi user_id, email, username, role
+        CurrentUser: Object containing user_id, email, username, role
 
     Raises:
-        UnauthorizedException: Jika token invalid atau user tidak ditemukan
+        UnauthorizedException: If token is invalid or user not found
     """
     token = credentials.credentials
 
     # Decode JWT token
     try:
+        if not SECRET_KEY:
+            raise UnauthorizedException(
+                message="Server configuration error",
+                details={"reason": "SECRET_KEY not configured"}
+            )
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
+        user_id = payload.get("sub")
 
-        if user_id is None:
+        if not user_id:
             raise UnauthorizedException(
                 message="Invalid token",
                 details={"reason": "Token does not contain user ID"}
@@ -68,7 +73,7 @@ def get_current_user(
             details={"reason": str(e)}
         )
 
-    # Get user dari database
+    # Get user from database
     user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:

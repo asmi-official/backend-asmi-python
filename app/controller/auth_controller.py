@@ -11,12 +11,12 @@ from app.core.response import SuccessResponse
 
 
 def register_user(data, db: Session):
-    # Auto-validate unique fields (email, username) berdasarkan model
+    # Auto-validate unique fields (email, username) based on model
     auto_validate(
         model=User,
         data=data.model_dump(),
         db=db,
-        validate_required=False  # Pydantic sudah handle required validation
+        validate_required=False  # Pydantic already handles required validation
     )
     user = User(
         name=data.name,
@@ -37,7 +37,7 @@ def register_user(data, db: Session):
 
 
 def login_user(data, db: Session):
-    # Cari user berdasarkan username atau email
+    # Search user by username or email
     user = db.query(User).filter(
         or_(
             User.username == data.identifier,
@@ -45,14 +45,14 @@ def login_user(data, db: Session):
         )
     ).first()
 
-    # User tidak ditemukan
+    # User not found
     if not user:
         raise UnauthorizedException(
             message="Invalid credentials",
             details={"reason": "User not found"}
         )
 
-    # Password salah
+    # Invalid password
     if not verify_password(data.password, user.password):
         raise UnauthorizedException(
             message="Invalid credentials",

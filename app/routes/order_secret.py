@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import List, Dict, Any
+import json
+
 from app.config.deps import get_db, get_current_user, CurrentUser
 from app.schemas.order_secret_schema import (
     OrderSecretCreateSchema,
@@ -23,17 +26,20 @@ def create(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Membuat order secret baru berdasarkan order ID dari marketplace.
+    Membuat order secret baru berdasarkan order ID dari marketplace (Admin only).
 
-    **Authentication required**: Bearer token dari login
+    **Authentication required**: Bearer token dari login dengan role admin
+
+    **Authorization**: Only admin users can create order secrets
 
     **Request Body**:
     - `order_secret_id`: ID unik order dari marketplace (required, unique)
-    - `category_marketplace_id`: UUID category marketplace yang sudah ada (required)
+    - `marketplace_type_id`: UUID marketplace type yang sudah ada (required)
 
     **Validations**:
+    - User role harus admin
     - `order_secret_id` harus unique
-    - `category_marketplace_id` harus exist dan tidak terhapus
+    - `marketplace_type_id` harus exist dan tidak terhapus
 
     **Auto-filled**:
     - `created_by`: Email dari user yang login
@@ -41,9 +47,14 @@ def create(
     - Fields lain (message, emotional, from_name) akan null sampai di-update
 
     **Flow**:
-    1. Sistem menerima order_secret_id dari marketplace
+    1. Admin menerima order_secret_id dari marketplace
     2. Create record dengan status kosong
-    3. Customer nanti mengisi message, emotional, from_name via update endpoint
+    3. Customer nanti mengisi message, emotional, from_name via update endpoint (public)
+
+    **Response**:
+    - HTTP 201: Order secret berhasil dibuat
+    - HTTP 403: Forbidden jika user bukan admin
+    - HTTP 400: Validation error
     """
     return create_order_secret(data, db, current_user)
 
@@ -144,10 +155,8 @@ def list_all(
     - ?filters=[{"key":"created_at","operator":"gte","value":"2025-12-27"}]&sort_by=created_at&sort_order=desc
     - ?page=2&per_page=20&search=TikTok&sort_by=created_at&sort_order=desc
     """
-    import json
-
     # Parse filters dari JSON string
-    parsed_filters = None
+    parsed_filters: List[Dict[str, Any]] | None = None
     if filters:
         try:
             parsed_filters = json.loads(filters)
@@ -210,18 +219,28 @@ def delete(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """
-    Soft delete order secret (data tidak benar-benar dihapus).
+    Soft delete order secret (data tidak benar-benar dihapus) - Admin only.
 
-    **Authentication required**: Bearer token dari login
+    **Authentication required**: Bearer token dari login dengan role admin
+
+    **Authorization**: Only admin users can delete order secrets
 
     **Path Parameter**:
     - `order_secret_id`: ID order dari marketplace (contoh: TBHJG65435O)
+
+    **Validations**:
+    - User role harus admin
 
     **Auto-filled**:
     - `deleted_by`: Email dari user yang login
     - `deleted_at`: Timestamp otomatis
 
     **Note**: Data hanya di-mark sebagai deleted, tidak benar-benar dihapus dari database
+
+    **Response**:
+    - HTTP 200: Order secret berhasil dihapus
+    - HTTP 403: Forbidden jika user bukan admin
+    - HTTP 404: Order secret not found
 
     **Use Case**: Admin menghapus order yang bermasalah atau dibatalkan
     """

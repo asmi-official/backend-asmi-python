@@ -10,7 +10,7 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-# Validasi environment variables
+# Validate environment variables
 missing_vars = []
 if not DB_HOST:
     missing_vars.append("DB_HOST")
@@ -25,9 +25,9 @@ if not DB_PASSWORD:
 
 if missing_vars:
     raise ValueError(
-        f"❌ ERROR: Environment variables tidak ditemukan!\n"
+        f"❌ ERROR: Environment variables not found!\n"
         f"Missing: {', '.join(missing_vars)}\n"
-        f"Pastikan file .env sudah ada dan berisi:\n"
+        f"Make sure .env file exists and contains:\n"
         f"  DB_HOST=localhost\n"
         f"  DB_PORT=5432\n"
         f"  DB_NAME=asmi_db\n"
@@ -35,8 +35,8 @@ if missing_vars:
         f"  DB_PASSWORD=your_password"
     )
 
-# Encode password untuk handle karakter khusus seperti @, !, #, dll
+# Encode password to handle special characters like @, !, #, etc.
 DATABASE_URL = (
-    f"postgresql://{DB_USER}:{quote_plus(DB_PASSWORD)}"
+    f"postgresql://{DB_USER}:{quote_plus(DB_PASSWORD or '')}"
     f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )

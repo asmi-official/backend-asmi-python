@@ -5,10 +5,10 @@ from logging.handlers import RotatingFileHandler
 
 def setup_logging():
     """
-    Setup logging configuration untuk aplikasi
-    - Console handler: tampil di terminal
-    - File handler: simpan ke logs/app.log
-    - Error handler: simpan error ke logs/error.log
+    Setup logging configuration for the application
+    - Console handler: display in terminal
+    - File handler: save to logs/app.log
+    - Error handler: save errors to logs/error.log
     """
     # Create logs directory
     LOG_DIR = "logs"
@@ -56,5 +56,5 @@ def setup_logging():
 
 
 def get_logger(name: str):
-    """Get logger instance dengan nama tertentu"""
+    """Get logger instance with specific name"""
     return logging.getLogger(name)

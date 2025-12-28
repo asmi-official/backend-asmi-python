@@ -42,6 +42,7 @@ alembic/versions/__pycache__/
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 
 # ===============================
 # Docker

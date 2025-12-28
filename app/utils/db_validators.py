@@ -73,7 +73,7 @@ def validate_unique_fields(
 def validate_required_fields(
     model: Type,
     data: Dict[str, Any],
-    exclude_fields: list = None
+    exclude_fields: Optional[list] = None
 ) -> None:
     """
     Validasi otomatis untuk required fields (nullable=False)
@@ -167,7 +167,7 @@ def auto_validate(
     db: Session,
     exclude_id: Optional[int] = None,
     validate_required: bool = False,
-    exclude_required_fields: list = None
+    exclude_required_fields: Optional[list] = None
 ) -> None:
     """
     Validasi otomatis lengkap (unique, required, length)

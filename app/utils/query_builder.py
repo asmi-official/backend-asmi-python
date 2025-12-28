@@ -3,8 +3,8 @@ Dynamic Query Builder Utility
 Provides reusable filtering, searching, sorting, and pagination functionality with JOIN support
 """
 
-from typing import Type, Optional, List, Dict, Any, Tuple
-from sqlalchemy.orm import Query, Session, joinedload
+from typing import Type, List, Dict, Any
+from sqlalchemy.orm import Query, Session
 from sqlalchemy import or_, desc, asc
 
 
@@ -35,7 +35,7 @@ def calculate_pagination_meta(total: int, page: int, per_page: int) -> dict:
 def apply_filters(
     query: Query,
     model: Type,
-    filters: Optional[List[Dict[str, Any]]] = None
+    filters: List[Dict[str, Any]] | None = None
 ) -> Query:
     """
     Apply dynamic filters to a SQLAlchemy query
@@ -63,8 +63,8 @@ def apply_filters(
         operator = filter_item.get("operator", "equal")
         value = filter_item.get("value")
 
-        # Skip jika key tidak ada di model
-        if not hasattr(model, key):
+        # Skip jika key tidak ada atau None
+        if not key or not hasattr(model, key):
             continue
 
         field = getattr(model, key)
@@ -105,8 +105,8 @@ def apply_filters(
 def apply_search(
     query: Query,
     model: Type,
-    search: Optional[str] = None,
-    search_fields: Optional[List[str]] = None
+    search: str | None = None,
+    search_fields: List[str] | None = None
 ) -> Query:
     """
     Apply global search to specific fields
@@ -138,7 +138,7 @@ def apply_search(
 def apply_sorting(
     query: Query,
     model: Type,
-    sort_by: Optional[str] = None,
+    sort_by: str | None = None,
     sort_order: str = "desc",
     default_sort_field: str = "created_at"
 ) -> Query:
@@ -171,17 +171,19 @@ def apply_sorting(
 def build_dynamic_query(
     db: Session,
     model: Type,
-    search: Optional[str] = None,
-    search_fields: Optional[List[str]] = None,
-    filters: Optional[List[Dict[str, Any]]] = None,
-    sort_by: Optional[str] = None,
+    search: str | None = None,
+    search_fields: List[str] | None = None,
+    filters: List[Dict[str, Any]] | None = None,
+    sort_by: str | None = None,
     sort_order: str = "desc",
     default_sort_field: str = "created_at",
     include_deleted: bool = False,
-    joins: Optional[List[Dict[str, Any]]] = None,
+    joins: List[Dict[str, Any]] | None = None,
     auto_search_all_fields: bool = False,
-    page: Optional[int] = None,
-    per_page: Optional[int] = None
+    page: int | None = None,
+    per_page: int | None = None,
+    current_user_id: str | None = None,
+    filter_by_user: bool = False
 ) -> Query:
     """
     Build a complete query with filtering, searching, sorting, pagination, and JOIN support
@@ -197,13 +199,17 @@ def build_dynamic_query(
         sort_order: "asc" or "desc"
         default_sort_field: Default sort field
         include_deleted: Whether to include soft-deleted records (default: False)
+        current_user_id: Current logged-in user ID (UUID as string)
+        filter_by_user: If True, filter results by user_id (for merchant role).
+                       If False, show all records (for admin role). Default: False
         joins: List of join configurations
             Format: [
                 {
                     "model": CategoryMarketplace,
                     "condition": OrderSecret.category_marketplace_id == CategoryMarketplace.id,
                     "relationship": "category_marketplace",  # Optional: for eager loading
-                    "load_only": ["id", "name", "description"]  # Optional: fields to load
+                    "load_only": ["id", "name", "description"],  # Optional: fields to load
+                    "is_outer": False  # Optional: True for LEFT JOIN, False for INNER JOIN (default)
                 }
             ]
         auto_search_all_fields: If True, automatically search all string/text fields from model and joins
@@ -245,6 +251,21 @@ def build_dynamic_query(
                 }
             ]
         )
+
+    Example with user filter (for merchant - only show their data):
+        query = build_dynamic_query(
+            db=db,
+            model=Business,
+            current_user_id=str(current_user.user_id),
+            filter_by_user=True  # Merchant: only show their businesses
+        )
+
+    Example for admin (show all data):
+        query = build_dynamic_query(
+            db=db,
+            model=Business,
+            filter_by_user=False  # Admin: show all businesses (no user filter)
+        )
     """
     # Start with base query
     query = db.query(model)
@@ -252,6 +273,11 @@ def build_dynamic_query(
     # Filter out soft-deleted records if model has deleted_at field
     if not include_deleted and hasattr(model, 'deleted_at'):
         query = query.filter(model.deleted_at.is_(None))
+
+    # Filter by user_id if requested (for merchant to see only their own data)
+    # Admin doesn't need this filter (filter_by_user=False)
+    if filter_by_user and current_user_id and hasattr(model, 'user_id'):
+        query = query.filter(model.user_id == current_user_id)
 
     # Apply JOINs if provided
     joined_models = {}
@@ -261,9 +287,13 @@ def build_dynamic_query(
         for join_config in joins:
             join_model = join_config["model"]
             join_condition = join_config["condition"]
+            is_outer = join_config.get("is_outer", False)  # Default to INNER JOIN
 
-            # Add JOIN
-            query = query.join(join_model, join_condition)
+            # Add JOIN (INNER or LEFT/OUTER)
+            if is_outer:
+                query = query.outerjoin(join_model, join_condition)
+            else:
+                query = query.join(join_model, join_condition)
 
             # Store joined model for later reference by class name
             joined_models[join_model.__name__] = join_model
@@ -325,10 +355,10 @@ def build_dynamic_query(
 def apply_search_with_joins(
     query: Query,
     model: Type,
-    search: Optional[str] = None,
-    search_fields: Optional[List[str]] = None,
-    joined_models: Optional[Dict[str, Type]] = None,
-    relationship_to_model: Optional[Dict[str, Type]] = None
+    search: str | None = None,
+    search_fields: List[str] | None = None,
+    joined_models: Dict[str, Type] | None = None,
+    relationship_to_model: Dict[str, Type] | None = None
 ) -> Query:
     """
     Apply global search to specific fields (supports joined table fields)
@@ -393,9 +423,9 @@ def apply_search_with_joins(
 def apply_filters_with_joins(
     query: Query,
     model: Type,
-    filters: Optional[List[Dict[str, Any]]] = None,
-    joined_models: Optional[Dict[str, Type]] = None,
-    relationship_to_model: Optional[Dict[str, Type]] = None
+    filters: List[Dict[str, Any]] | None = None,
+    joined_models: Dict[str, Type] | None = None,
+    relationship_to_model: Dict[str, Type] | None = None
 ) -> Query:
     """
     Apply dynamic filters to a SQLAlchemy query (supports joined table fields)
@@ -423,6 +453,10 @@ def apply_filters_with_joins(
         key = filter_item.get("key")
         operator = filter_item.get("operator", "equal")
         value = filter_item.get("value")
+
+        # Skip if key is None
+        if not key:
+            continue
 
         # Check if it's a joined table field
         if "." in key:
@@ -492,11 +526,11 @@ def apply_filters_with_joins(
 def apply_sorting_with_joins(
     query: Query,
     model: Type,
-    sort_by: Optional[str] = None,
+    sort_by: str | None = None,
     sort_order: str = "desc",
     default_sort_field: str = "created_at",
-    joined_models: Optional[Dict[str, Type]] = None,
-    relationship_to_model: Optional[Dict[str, Type]] = None
+    joined_models: Dict[str, Type] | None = None,
+    relationship_to_model: Dict[str, Type] | None = None
 ) -> Query:
     """
     Apply dynamic sorting to query (supports joined table fields)

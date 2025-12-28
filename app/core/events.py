@@ -7,14 +7,17 @@ logger = logging.getLogger(__name__)
 
 def startup_event():
     """
-    Event yang dijalankan saat aplikasi startup
-    - Test koneksi database
-    - Log informasi PostgreSQL
+    Event that runs when application starts
+    - Test database connection
+    - Log PostgreSQL information
     """
     try:
         with engine.connect() as conn:
             result = conn.execute(text("SELECT version()"))
-            version = result.fetchone()[0]
+            version_row = result.fetchone()
+            if version_row is None:
+                raise Exception("Could not retrieve PostgreSQL version")
+            version = version_row[0]
 
         print("=" * 60)
         print("✅ PostgreSQL CONNECTED SUCCESSFULLY!")
@@ -38,7 +41,7 @@ def startup_event():
 
 def shutdown_event():
     """
-    Event yang dijalankan saat aplikasi shutdown
+    Event that runs when application shuts down
     """
     logger.info("Application shutdown")
     print("👋 Application shutting down...")

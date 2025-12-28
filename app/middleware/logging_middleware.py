@@ -9,17 +9,18 @@ logger = logging.getLogger(__name__)
 
 async def log_requests_middleware(request: Request, call_next):
     """
-    Middleware untuk logging semua HTTP requests
+    Middleware for logging all HTTP requests
     - Log incoming request
-    - Log response dengan status code dan duration
-    - Handle dan log exceptions
+    - Log response with status code and duration
+    - Handle and log exceptions
     """
     start_time = time.time()
 
     # Log incoming request
+    client_host = request.client.host if request.client else "unknown"
     logger.info(
         f"📥 {request.method} {request.url.path} - "
-        f"Client: {request.client.host}"
+        f"Client: {client_host}"
     )
 
     try:
@@ -28,7 +29,7 @@ async def log_requests_middleware(request: Request, call_next):
         # Calculate request duration
         duration = time.time() - start_time
 
-        # Log response berdasarkan status code
+        # Log response based on status code
         if response.status_code < 400:
             logger.info(
                 f"✅ {request.method} {request.url.path} - "

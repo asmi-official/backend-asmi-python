@@ -1,13 +1,13 @@
 """
-Custom Exception Classes untuk aplikasi
-Semua error response akan mengikuti format yang sama
+Custom Exception Classes for the application
+All error responses will follow the same format
 """
 
 from typing import Any, Optional
 
 
 class AppException(Exception):
-    """Base exception untuk semua custom exceptions"""
+    """Base exception for all custom exceptions"""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class AppException(Exception):
 # ===============================
 
 class UnauthorizedException(AppException):
-    """401 - User tidak ter-autentikasi"""
+    """401 - User is not authenticated"""
 
     def __init__(self, message: str = "Unauthorized", details: Any = None):
         super().__init__(
@@ -40,7 +40,7 @@ class UnauthorizedException(AppException):
 
 
 class ForbiddenException(AppException):
-    """403 - User tidak punya akses"""
+    """403 - User does not have access"""
 
     def __init__(self, message: str = "Forbidden", details: Any = None):
         super().__init__(
@@ -56,7 +56,7 @@ class ForbiddenException(AppException):
 # ===============================
 
 class NotFoundException(AppException):
-    """404 - Resource tidak ditemukan"""
+    """404 - Resource not found"""
 
     def __init__(self, message: str = "Resource not found", details: Any = None):
         super().__init__(
@@ -68,7 +68,7 @@ class NotFoundException(AppException):
 
 
 class ConflictException(AppException):
-    """409 - Konflik data (misal: email sudah ada)"""
+    """409 - Data conflict (e.g., email already exists)"""
 
     def __init__(self, message: str = "Conflict", details: Any = None):
         super().__init__(
@@ -84,7 +84,7 @@ class ConflictException(AppException):
 # ===============================
 
 class ValidationException(AppException):
-    """422 - Validasi data gagal"""
+    """422 - Data validation failed"""
 
     def __init__(self, message: str = "Validation failed", details: Any = None):
         super().__init__(
@@ -112,7 +112,7 @@ class InternalServerException(AppException):
 
 
 class ServiceUnavailableException(AppException):
-    """503 - Service tidak tersedia"""
+    """503 - Service is unavailable"""
 
     def __init__(self, message: str = "Service unavailable", details: Any = None):
         super().__init__(

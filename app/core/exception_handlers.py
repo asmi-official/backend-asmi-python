@@ -1,10 +1,11 @@
 """
 Global Exception Handlers
-Semua error akan di-handle di sini dan return format yang konsisten
+All errors will be handled here and return consistent format
 """
 
 import logging
 from datetime import datetime
+from typing import Any
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -20,10 +21,10 @@ def create_error_response(
     message: str,
     status_code: int,
     path: str,
-    details: any = None
+    details: Any = None
 ) -> dict:
     """
-    Buat response error dengan format yang konsisten
+    Create error response with consistent format
 
     Format Response:
     {
@@ -55,7 +56,7 @@ def create_error_response(
 
 async def app_exception_handler(request: Request, exc: AppException):
     """
-    Handler untuk semua custom AppException
+    Handler for all custom AppException
     """
     logger.error(
         f"AppException: {exc.error_code} - {exc.message} - Path: {request.url.path}",
@@ -76,7 +77,7 @@ async def app_exception_handler(request: Request, exc: AppException):
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
-    Handler untuk validation errors dari Pydantic
+    Handler for validation errors from Pydantic
     """
     errors = []
     for error in exc.errors():
@@ -104,7 +105,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     """
-    Handler untuk SQLAlchemy database errors
+    Handler for SQLAlchemy database errors
     """
     logger.error(
         f"Database Error - Path: {request.url.path} - Error: {str(exc)}",
@@ -125,7 +126,7 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
 
 async def generic_exception_handler(request: Request, exc: Exception):
     """
-    Handler untuk semua unhandled exceptions
+    Handler for all unhandled exceptions
     """
     logger.error(
         f"Unhandled Exception - Path: {request.url.path} - Error: {str(exc)}",
@@ -146,7 +147,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 def register_exception_handlers(app):
     """
-    Register semua exception handlers ke FastAPI app
+    Register all exception handlers to FastAPI app
     """
     # Custom app exceptions
     app.add_exception_handler(AppException, app_exception_handler)

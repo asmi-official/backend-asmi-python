@@ -9,7 +9,7 @@ try:
         pool_pre_ping=True
     )
 
-    # Test koneksi
+    # Test connection
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
 
@@ -18,33 +18,33 @@ except OperationalError as e:
 
     if "password authentication failed" in error_msg:
         raise ConnectionError(
-            f"❌ ERROR: Password PostgreSQL salah!\n"
+            f"❌ ERROR: PostgreSQL password is incorrect!\n"
             f"Database: {DB_NAME}\n"
             f"User: {DB_USER}\n"
-            f"Pastikan password di file .env sesuai dengan PostgreSQL"
+            f"Make sure the password in .env file matches PostgreSQL"
         ) from e
 
     elif "database" in error_msg and "does not exist" in error_msg:
         raise ConnectionError(
-            f"❌ ERROR: Database '{DB_NAME}' tidak ditemukan!\n"
-            f"Jalankan command ini untuk membuat database:\n"
+            f"❌ ERROR: Database '{DB_NAME}' not found!\n"
+            f"Run this command to create the database:\n"
             f"  psql -U {DB_USER}\n"
             f"  CREATE DATABASE {DB_NAME};"
         ) from e
 
     elif "Connection refused" in error_msg or "connect" in error_msg.lower():
         raise ConnectionError(
-            f"❌ ERROR: Tidak bisa koneksi ke PostgreSQL!\n"
+            f"❌ ERROR: Cannot connect to PostgreSQL!\n"
             f"Host: {DB_HOST}:{DB_PORT}\n"
-            f"Pastikan PostgreSQL sudah running:\n"
+            f"Make sure PostgreSQL is running:\n"
             f"  Windows: Get-Service postgresql*\n"
             f"  Linux/Mac: sudo systemctl status postgresql"
         ) from e
 
     elif "role" in error_msg and "does not exist" in error_msg:
         raise ConnectionError(
-            f"❌ ERROR: User PostgreSQL '{DB_USER}' tidak ada!\n"
-            f"Jalankan command ini untuk membuat user:\n"
+            f"❌ ERROR: PostgreSQL user '{DB_USER}' does not exist!\n"
+            f"Run this command to create the user:\n"
             f"  psql -U postgres\n"
             f"  CREATE USER {DB_USER} WITH PASSWORD 'your_password';\n"
             f"  GRANT ALL PRIVILEGES ON DATABASE {DB_NAME} TO {DB_USER};"
@@ -52,7 +52,7 @@ except OperationalError as e:
 
     else:
         raise ConnectionError(
-            f"❌ ERROR: Koneksi database gagal!\n"
+            f"❌ ERROR: Database connection failed!\n"
             f"Host: {DB_HOST}:{DB_PORT}\n"
             f"Database: {DB_NAME}\n"
             f"User: {DB_USER}\n"
@@ -61,7 +61,7 @@ except OperationalError as e:
 
 except Exception as e:
     raise ConnectionError(
-        f"❌ ERROR: Unexpected error saat koneksi database!\n"
+        f"❌ ERROR: Unexpected error during database connection!\n"
         f"Detail: {str(e)}"
     ) from e
 

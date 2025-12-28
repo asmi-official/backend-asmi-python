@@ -1,6 +1,6 @@
 """
-Standard Response Format untuk semua endpoint
-Menjamin konsistensi response structure di seluruh aplikasi
+Standard Response Format for all endpoints
+Ensures consistent response structure across the application
 """
 
 from typing import Any, Optional
@@ -12,7 +12,7 @@ from enum import Enum
 
 
 class SuccessResponse:
-    """Helper class untuk membuat response yang konsisten"""
+    """Helper class to create consistent responses"""
 
     @staticmethod
     def _serialize_sqlalchemy_model(obj: Any) -> dict:
@@ -38,10 +38,10 @@ class SuccessResponse:
             else:
                 result[column.key] = value
 
-        # Serialize relationships (hanya yang sudah di-load)
+        # Serialize relationships (only those already loaded)
         for relationship in mapper.mapper.relationships:
             if relationship.key in mapper.unloaded:
-                # Skip relationships yang belum di-load
+                # Skip relationships that are not yet loaded
                 continue
 
             rel_value = getattr(obj, relationship.key)
@@ -49,7 +49,7 @@ class SuccessResponse:
             if rel_value is None:
                 result[relationship.key] = None
             elif isinstance(rel_value, list):
-                # One-to-many atau many-to-many relationship
+                # One-to-many or many-to-many relationship
                 result[relationship.key] = [
                     SuccessResponse._serialize_sqlalchemy_model(item)
                     for item in rel_value
@@ -83,15 +83,15 @@ class SuccessResponse:
         meta: Optional[dict] = None
     ) -> dict:
         """
-        Format standard untuk success response
+        Standard format for success response
 
         Args:
-            message: Pesan sukses
-            data: Data yang dikembalikan (opsional) - bisa Pydantic model, SQLAlchemy model, atau dict
-            meta: Metadata tambahan seperti pagination (opsional)
+            message: Success message
+            data: Returned data (optional) - can be Pydantic model, SQLAlchemy model, or dict
+            meta: Additional metadata such as pagination (optional)
 
         Returns:
-            Dictionary dengan format konsisten
+            Dictionary with consistent format
         """
         response = {
             "success": True,
@@ -108,20 +108,20 @@ class SuccessResponse:
 
     @staticmethod
     def created(message: str, data: Any = None) -> dict:
-        """Response untuk resource yang berhasil dibuat (201)"""
+        """Response for successfully created resource (201)"""
         return SuccessResponse.success(message=message, data=data)
 
     @staticmethod
     def updated(message: str, data: Any = None) -> dict:
-        """Response untuk resource yang berhasil diupdate"""
+        """Response for successfully updated resource"""
         return SuccessResponse.success(message=message, data=data)
 
     @staticmethod
     def deleted(message: str = "Resource deleted successfully") -> dict:
-        """Response untuk resource yang berhasil dihapus"""
+        """Response for successfully deleted resource"""
         return SuccessResponse.success(message=message)
 
     @staticmethod
     def retrieved(message: str, data: Any, meta: Optional[dict] = None) -> dict:
-        """Response untuk get data"""
+        """Response for retrieving data"""
         return SuccessResponse.success(message=message, data=data, meta=meta)

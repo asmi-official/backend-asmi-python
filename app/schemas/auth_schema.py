@@ -6,7 +6,7 @@ from uuid import UUID
 
 class RoleEnum(str, Enum):
     admin = "admin"
-    karyawan = "karyawan"
+    merchen = "merchen"
 
 
 class RegisterSchema(BaseModel):
@@ -35,8 +35,8 @@ class RegisterSchema(BaseModel):
     )
     role: RoleEnum = Field(
         ...,
-        description="Role user: admin atau karyawan",
-        examples=["karyawan"]
+        description="Role user: admin atau merchen",
+        examples=["merchen"]
     )
 
     model_config = ConfigDict(
@@ -47,7 +47,7 @@ class RegisterSchema(BaseModel):
                     "email": "john.doe@example.com",
                     "username": "johndoe",
                     "password": "password123",
-                    "role": "karyawan"
+                    "role": "merchen"
                 }
             ]
         }
