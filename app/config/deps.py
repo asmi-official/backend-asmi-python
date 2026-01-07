@@ -8,7 +8,6 @@ from uuid import UUID
 from app.config.database import SessionLocal
 from app.config_env import SECRET_KEY, ALGORITHM
 from app.core.exceptions import UnauthorizedException
-from app.models.user import User
 
 # Security scheme for Swagger UI
 security = HTTPBearer(
@@ -73,7 +72,9 @@ def get_current_user(
             details={"reason": str(e)}
         )
 
-    # Get user from database
+    # Get user from database (lazy import to avoid circular import)
+    from app.modules.auth.model import User
+
     user = db.query(User).filter(User.id == user_id).first()
 
     if user is None:
