@@ -102,6 +102,17 @@ class ProductImageRepository:
         image.deleted_by = deleted_by
         db.flush()
 
+    def bulk_soft_delete(self, db: Session, image_ids: List[UUID], deleted_by: str) -> None:
+        """Bulk soft delete images by IDs"""
+        from datetime import datetime
+        db.query(ProductImage).filter(
+            ProductImage.id.in_(image_ids)
+        ).update({
+            "deleted_at": datetime.utcnow(),
+            "deleted_by": deleted_by
+        }, synchronize_session=False)
+        db.flush()
+
     def delete_by_product(self, db: Session, product_id: UUID, deleted_by: str) -> None:
         """Soft delete all images for a product"""
         from datetime import datetime

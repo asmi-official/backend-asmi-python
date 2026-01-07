@@ -91,6 +91,18 @@ class VariantAttributeRepository:
         db.flush()
         return attribute
 
+    @staticmethod
+    def bulk_soft_delete(db: Session, attribute_ids: List[UUID], deleted_by: str):
+        """Bulk soft delete variant attributes by IDs"""
+        from datetime import datetime
+        db.query(VariantAttribute).filter(
+            VariantAttribute.id.in_(attribute_ids)
+        ).update({
+            "deleted_at": datetime.now(),
+            "deleted_by": deleted_by
+        }, synchronize_session=False)
+        db.flush()
+
 
 class ProductVariantRepository:
 
@@ -192,6 +204,18 @@ class ProductVariantRepository:
         variant.deleted_by = deleted_by
         db.flush()
         return variant
+
+    @staticmethod
+    def bulk_soft_delete(db: Session, variant_ids: List[UUID], deleted_by: str):
+        """Bulk soft delete variants by IDs"""
+        from datetime import datetime
+        db.query(ProductVariant).filter(
+            ProductVariant.id.in_(variant_ids)
+        ).update({
+            "deleted_at": datetime.now(),
+            "deleted_by": deleted_by
+        }, synchronize_session=False)
+        db.flush()
 
     @staticmethod
     def delete_attribute_mappings(db: Session, variant_id: UUID):

@@ -734,6 +734,10 @@ class ProductUsecase:
             raise e
 
     def delete_product(self, product_id: UUID, business_id: UUID, deleted_by: str):
+        """
+        Delete product with BULK operations for better performance.
+        Physical files are deleted individually, but DB operations are batched.
+        """
         try:
             # 1. Find product with all relationships
             product = self.repository.find_by_id_and_business(self.db, product_id, business_id)
@@ -743,25 +747,43 @@ class ProductUsecase:
                     details={"product_id": str(product_id)}
                 )
 
-            # 2. Delete all physical image files
+            # 2. Delete all physical image files and collect image IDs
             # Delete main product images
+            main_image_ids = []
             for image in product.images:
                 self._delete_physical_file(image.image_path)
-                self.image_repository.soft_delete(self.db, image, deleted_by)
+                main_image_ids.append(image.id)
 
-            # 3. Delete variants and their images
+            # BULK: Soft delete all main product images at once
+            if main_image_ids:
+                self.image_repository.bulk_soft_delete(self.db, main_image_ids, deleted_by)
+
+            # 3. Delete variants and their images (for VARIABLE products)
             if product.product_type == ProductType.VARIABLE:
+                variant_ids = []
+                variant_image_ids = []
+
+                # Collect all variant IDs and variant image IDs
                 for variant in product.variants:
-                    # Delete variant image files
+                    variant_ids.append(variant.id)
+
+                    # Delete physical variant image files
                     for v_image in variant.images:
                         self._delete_physical_file(v_image.image_path)
+                        variant_image_ids.append(v_image.id)
 
-                    # Soft delete variant
-                    self.variant_repository.soft_delete(self.db, variant, deleted_by)
+                # BULK: Soft delete all variant images at once
+                if variant_image_ids:
+                    self.image_repository.bulk_soft_delete(self.db, variant_image_ids, deleted_by)
 
-                # Soft delete attributes
-                for attribute in product.variant_attributes:
-                    self.attribute_repository.soft_delete(self.db, attribute, deleted_by)
+                # BULK: Soft delete all variants at once
+                if variant_ids:
+                    self.variant_repository.bulk_soft_delete(self.db, variant_ids, deleted_by)
+
+                # BULK: Soft delete all attributes at once
+                attribute_ids = [attr.id for attr in product.variant_attributes]
+                if attribute_ids:
+                    self.attribute_repository.bulk_soft_delete(self.db, attribute_ids, deleted_by)
 
             # 4. Soft delete product
             self.repository.soft_delete(self.db, product, deleted_by)
