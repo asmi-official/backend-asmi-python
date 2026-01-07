@@ -39,6 +39,19 @@ class ProductImageRepository:
         db.flush()
         return images
 
+    def bulk_create_images(self, db: Session, images_data: List[Dict[str, Any]]) -> List[ProductImage]:
+        """
+        Alias for create_images_bulk for consistency with other repositories
+
+        Args:
+            db: Database session
+            images_data: List of dicts containing image data
+
+        Returns:
+            List of created ProductImage objects
+        """
+        return self.create_images_bulk(db, images_data)
+
     def find_by_id(self, db: Session, image_id: UUID) -> Optional[ProductImage]:
         """Find image by ID"""
         return db.query(ProductImage).filter(ProductImage.id == image_id).first()

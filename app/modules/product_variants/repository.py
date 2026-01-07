@@ -19,11 +19,50 @@ class VariantAttributeRepository:
         return attribute
 
     @staticmethod
+    def bulk_create_attributes(db: Session, attributes_data: List[dict]) -> List[VariantAttribute]:
+        """
+        Create multiple attributes in bulk
+
+        Args:
+            db: Database session
+            attributes_data: List of dicts containing attribute data
+
+        Returns:
+            List of created VariantAttribute objects
+        """
+        attributes = [VariantAttribute(**data) for data in attributes_data]
+        db.add_all(attributes)
+        db.flush()
+        return attributes
+
+    @staticmethod
     def create_attribute_value(db: Session, value_data: dict) -> VariantAttributeValue:
         value = VariantAttributeValue(**value_data)
         db.add(value)
         db.flush()
         return value
+
+    @staticmethod
+    def bulk_create_attribute_values(db: Session, values_data: List[dict]) -> List[VariantAttributeValue]:
+        """
+        Create multiple attribute values in bulk
+
+        Args:
+            db: Database session
+            values_data: List of dicts containing attribute value data
+
+        Returns:
+            List of created VariantAttributeValue objects
+        """
+        # Filter out temporary fields that start with _temp_
+        cleaned_data = [
+            {k: v for k, v in data.items() if not k.startswith('_temp_')}
+            for data in values_data
+        ]
+        values = [VariantAttributeValue(**data) for data in cleaned_data]
+        db.add_all(values)
+        db.flush()
+        return values
 
     @staticmethod
     def find_attributes_by_product(db: Session, product_id: UUID) -> List[VariantAttribute]:
@@ -63,11 +102,50 @@ class ProductVariantRepository:
         return variant
 
     @staticmethod
+    def bulk_create_variants(db: Session, variants_data: List[dict]) -> List[ProductVariant]:
+        """
+        Create multiple variants in bulk
+
+        Args:
+            db: Database session
+            variants_data: List of dicts containing variant data
+
+        Returns:
+            List of created ProductVariant objects
+        """
+        # Filter out temporary fields that start with _temp_
+        cleaned_data = [
+            {k: v for k, v in data.items() if not k.startswith('_temp_')}
+            for data in variants_data
+        ]
+        variants = [ProductVariant(**data) for data in cleaned_data]
+        db.add_all(variants)
+        db.flush()
+        return variants
+
+    @staticmethod
     def create_attribute_mapping(db: Session, mapping_data: dict) -> VariantAttributeMapping:
         mapping = VariantAttributeMapping(**mapping_data)
         db.add(mapping)
         db.flush()
         return mapping
+
+    @staticmethod
+    def bulk_create_attribute_mappings(db: Session, mappings_data: List[dict]) -> List[VariantAttributeMapping]:
+        """
+        Create multiple attribute mappings in bulk
+
+        Args:
+            db: Database session
+            mappings_data: List of dicts containing mapping data
+
+        Returns:
+            List of created VariantAttributeMapping objects
+        """
+        mappings = [VariantAttributeMapping(**data) for data in mappings_data]
+        db.add_all(mappings)
+        db.flush()
+        return mappings
 
     @staticmethod
     def find_by_id(db: Session, variant_id: UUID) -> Optional[ProductVariant]:

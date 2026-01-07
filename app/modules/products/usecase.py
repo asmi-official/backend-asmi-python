@@ -144,7 +144,7 @@ class ProductUsecase:
     def create_product(self, data: ProductCreateSchema, business_id: UUID, user_id: UUID, created_by: str):
         """
         Atomic product creation with nested attributes, variants, and images.
-        All in 1 transaction!
+        All in 1 transaction with BULK INSERT operations for better performance!
         """
         try:
             # 1. Validate business exists
@@ -211,49 +211,73 @@ class ProductUsecase:
 
             product = self.repository.create_product(self.db, product_data)
 
-            # 8. Create product images (for both SIMPLE and VARIABLE)
-            for img_data in data.images:
-                self.image_repository.create_image(self.db, {
-                    "product_id": product.id,
-                    "variant_id": None,  # Main product images
-                    "image_url": img_data.image_url,
-                    "image_path": img_data.image_path,
-                    "file_size": img_data.file_size,
-                    "mime_type": img_data.mime_type,
-                    "display_order": img_data.display_order,
-                    "is_primary": img_data.is_primary,
-                    "alt_text": img_data.alt_text,
-                    "created_by": created_by
-                })
+            # 7. BULK INSERT: Prepare all product images
+            if data.images:
+                product_images_data = [
+                    {
+                        "product_id": product.id,
+                        "variant_id": None,
+                        "image_url": img_data.image_url,
+                        "image_path": img_data.image_path,
+                        "file_size": img_data.file_size,
+                        "mime_type": img_data.mime_type,
+                        "display_order": img_data.display_order,
+                        "is_primary": img_data.is_primary,
+                        "alt_text": img_data.alt_text,
+                        "created_by": created_by
+                    }
+                    for img_data in data.images
+                ]
+                self.image_repository.bulk_create_images(self.db, product_images_data)
 
-            # 9. Create attributes and variants (for VARIABLE products only)
+            # 8. Create attributes and variants (for VARIABLE products only)
             if data.product_type == ProductType.VARIABLE:
-                # Create attributes with values
-                attribute_map = {}  # {attribute_name: {value_name: value_id}}
-
-                for attr_data in data.attributes:
-                    # Create attribute
-                    attribute = self.attribute_repository.create_attribute(self.db, {
+                # BULK INSERT: Prepare all attributes
+                attributes_to_create = [
+                    {
                         "product_id": product.id,
                         "attribute_name": attr_data.attribute_name,
                         "display_order": attr_data.display_order,
                         "created_by": created_by
-                    })
+                    }
+                    for attr_data in data.attributes
+                ]
+                created_attributes = self.attribute_repository.bulk_create_attributes(self.db, attributes_to_create)
 
+                # Build attribute map and prepare attribute values
+                attribute_map = {}  # {attribute_name: {value_name: value_id}}
+                all_attribute_values = []
+
+                for idx, attr_data in enumerate(data.attributes):
+                    attribute_id = created_attributes[idx].id
                     attribute_map[attr_data.attribute_name] = {}
 
-                    # Create attribute values
                     for val_data in attr_data.values:
-                        value = self.attribute_repository.create_attribute_value(self.db, {
-                            "attribute_id": attribute.id,
+                        all_attribute_values.append({
+                            "attribute_id": attribute_id,
                             "value": val_data.value,
                             "color_code": val_data.color_code,
                             "image_url": val_data.image_url,
-                            "display_order": val_data.display_order
+                            "display_order": val_data.display_order,
+                            "_temp_attr_name": attr_data.attribute_name,  # Temporary for mapping
+                            "_temp_value_name": val_data.value
                         })
-                        attribute_map[attr_data.attribute_name][val_data.value] = value.id
 
-                # Create variants
+                # BULK INSERT: Create all attribute values at once
+                if all_attribute_values:
+                    created_values = self.attribute_repository.bulk_create_attribute_values(self.db, all_attribute_values)
+
+                    # Build the value map
+                    for value_obj, value_data in zip(created_values, all_attribute_values):
+                        attr_name = value_data["_temp_attr_name"]
+                        value_name = value_data["_temp_value_name"]
+                        attribute_map[attr_name][value_name] = value_obj.id
+
+                # Prepare variants data
+                variants_to_create = []
+                variant_mappings = []  # Store mappings to create after variants
+                variant_images_data = []  # Store images to create after variants
+
                 for idx, variant_data in enumerate(data.variants, start=1):
                     # Build variant name from attribute values
                     variant_name_parts = []
@@ -277,19 +301,16 @@ class ProductUsecase:
 
                     variant_name = " / ".join(variant_name_parts)
                     variant_code = f"{product_code}-VAR-{str(idx).zfill(4)}"
-
-                    # Auto-generate variant SKU from variant_code
                     variant_sku = f"SKU-{variant_code}"
 
-                    # Create variant
-                    variant = self.variant_repository.create_variant(self.db, {
+                    variants_to_create.append({
                         "product_id": product.id,
                         "variant_code": variant_code,
                         "variant_sequence": idx,
                         "variant_name": variant_name,
                         "price_adjustment": variant_data.price_adjustment,
                         "selling_price": variant_data.selling_price,
-                        "sku": variant_sku,  # Auto-generated
+                        "sku": variant_sku,
                         "qty": variant_data.qty,
                         "min_stock": variant_data.min_stock,
                         "weight": variant_data.weight,
@@ -298,32 +319,48 @@ class ProductUsecase:
                         "height": variant_data.height,
                         "is_active": variant_data.is_active,
                         "is_default": variant_data.is_default,
-                        "created_by": created_by
+                        "created_by": created_by,
+                        "_temp_attribute_value_ids": attribute_value_ids,  # Temporary
+                        "_temp_images": variant_data.images  # Temporary
                     })
 
-                    # Create attribute mappings
-                    for value_id in attribute_value_ids:
-                        self.variant_repository.create_attribute_mapping(self.db, {
-                            "variant_id": variant.id,
-                            "attribute_value_id": value_id
-                        })
+                # BULK INSERT: Create all variants
+                if variants_to_create:
+                    created_variants = self.variant_repository.bulk_create_variants(self.db, variants_to_create)
 
-                    # Create variant images
-                    for img_data in variant_data.images:
-                        self.image_repository.create_image(self.db, {
-                            "product_id": product.id,
-                            "variant_id": variant.id,
-                            "image_url": img_data.image_url,
-                            "image_path": img_data.image_path,
-                            "file_size": img_data.file_size,
-                            "mime_type": img_data.mime_type,
-                            "display_order": img_data.display_order,
-                            "is_primary": img_data.is_primary,
-                            "alt_text": img_data.alt_text,
-                            "created_by": created_by
-                        })
+                    # Prepare variant attribute mappings and images
+                    for variant_obj, variant_data in zip(created_variants, variants_to_create):
+                        # Prepare attribute mappings
+                        for value_id in variant_data["_temp_attribute_value_ids"]:
+                            variant_mappings.append({
+                                "variant_id": variant_obj.id,
+                                "attribute_value_id": value_id
+                            })
 
-            # 10. Commit transaction
+                        # Prepare variant images
+                        for img_data in variant_data["_temp_images"]:
+                            variant_images_data.append({
+                                "product_id": product.id,
+                                "variant_id": variant_obj.id,
+                                "image_url": img_data.image_url,
+                                "image_path": img_data.image_path,
+                                "file_size": img_data.file_size,
+                                "mime_type": img_data.mime_type,
+                                "display_order": img_data.display_order,
+                                "is_primary": img_data.is_primary,
+                                "alt_text": img_data.alt_text,
+                                "created_by": created_by
+                            })
+
+                    # BULK INSERT: Create all variant attribute mappings
+                    if variant_mappings:
+                        self.variant_repository.bulk_create_attribute_mappings(self.db, variant_mappings)
+
+                    # BULK INSERT: Create all variant images
+                    if variant_images_data:
+                        self.image_repository.bulk_create_images(self.db, variant_images_data)
+
+            # 9. Commit transaction
             self.db.commit()
             self.db.refresh(product)
 
@@ -533,46 +570,73 @@ class ProductUsecase:
 
             product = self.repository.update_product(self.db, product, product_update_data)
 
-            # 8. Create new product images
-            for img_data in uploaded_main_images:
-                self.image_repository.create_image(self.db, {
-                    "product_id": product.id,
-                    "variant_id": None,
-                    "image_url": img_data.image_url,
-                    "image_path": img_data.image_path,
-                    "file_size": img_data.file_size,
-                    "mime_type": img_data.mime_type,
-                    "display_order": img_data.display_order,
-                    "is_primary": img_data.is_primary,
-                    "alt_text": img_data.alt_text,
-                    "created_by": updated_by
-                })
+            # 8. BULK INSERT: Create new product images
+            if uploaded_main_images:
+                product_images_data = [
+                    {
+                        "product_id": product.id,
+                        "variant_id": None,
+                        "image_url": img_data.image_url,
+                        "image_path": img_data.image_path,
+                        "file_size": img_data.file_size,
+                        "mime_type": img_data.mime_type,
+                        "display_order": img_data.display_order,
+                        "is_primary": img_data.is_primary,
+                        "alt_text": img_data.alt_text,
+                        "created_by": updated_by
+                    }
+                    for img_data in uploaded_main_images
+                ]
+                self.image_repository.bulk_create_images(self.db, product_images_data)
 
             # 9. Create new attributes and variants (for VARIABLE products)
             if data.product_type == ProductType.VARIABLE:
-                attribute_map = {}
-
-                for attr_data in data.attributes:
-                    attribute = self.attribute_repository.create_attribute(self.db, {
+                # BULK INSERT: Prepare all attributes
+                attributes_to_create = [
+                    {
                         "product_id": product.id,
                         "attribute_name": attr_data.attribute_name,
                         "display_order": attr_data.display_order,
                         "created_by": updated_by
-                    })
+                    }
+                    for attr_data in data.attributes
+                ]
+                created_attributes = self.attribute_repository.bulk_create_attributes(self.db, attributes_to_create)
 
+                # Build attribute map and prepare attribute values
+                attribute_map = {}
+                all_attribute_values = []
+
+                for idx, attr_data in enumerate(data.attributes):
+                    attribute_id = created_attributes[idx].id
                     attribute_map[attr_data.attribute_name] = {}
 
                     for val_data in attr_data.values:
-                        value = self.attribute_repository.create_attribute_value(self.db, {
-                            "attribute_id": attribute.id,
+                        all_attribute_values.append({
+                            "attribute_id": attribute_id,
                             "value": val_data.value,
                             "color_code": val_data.color_code,
                             "image_url": val_data.image_url,
-                            "display_order": val_data.display_order
+                            "display_order": val_data.display_order,
+                            "_temp_attr_name": attr_data.attribute_name,
+                            "_temp_value_name": val_data.value
                         })
-                        attribute_map[attr_data.attribute_name][val_data.value] = value.id
 
-                # Create variants
+                # BULK INSERT: Create all attribute values at once
+                if all_attribute_values:
+                    created_values = self.attribute_repository.bulk_create_attribute_values(self.db, all_attribute_values)
+
+                    # Build the value map
+                    for value_obj, value_data in zip(created_values, all_attribute_values):
+                        attr_name = value_data["_temp_attr_name"]
+                        value_name = value_data["_temp_value_name"]
+                        attribute_map[attr_name][value_name] = value_obj.id
+
+                # Prepare variants data
+                variants_to_create = []
+                variant_mappings = []
+                variant_images_data = []
+
                 for idx, variant_data in enumerate(data.variants, start=1):
                     variant_name_parts = []
                     attribute_value_ids = []
@@ -597,7 +661,7 @@ class ProductUsecase:
                     variant_code = f"{product.product_code}-VAR-{str(idx).zfill(4)}"
                     variant_sku = f"SKU-{variant_code}"
 
-                    variant = self.variant_repository.create_variant(self.db, {
+                    variants_to_create.append({
                         "product_id": product.id,
                         "variant_code": variant_code,
                         "variant_sequence": idx,
@@ -613,31 +677,48 @@ class ProductUsecase:
                         "height": variant_data.height,
                         "is_active": variant_data.is_active,
                         "is_default": variant_data.is_default,
-                        "created_by": updated_by
+                        "created_by": updated_by,
+                        "_temp_attribute_value_ids": attribute_value_ids,
+                        "_temp_variant_idx": idx - 1  # For image mapping
                     })
 
-                    # Create attribute mappings
-                    for value_id in attribute_value_ids:
-                        self.variant_repository.create_attribute_mapping(self.db, {
-                            "variant_id": variant.id,
-                            "attribute_value_id": value_id
-                        })
+                # BULK INSERT: Create all variants
+                if variants_to_create:
+                    created_variants = self.variant_repository.bulk_create_variants(self.db, variants_to_create)
 
-                    # Create variant images
-                    if idx - 1 in variant_images_map:
-                        for img_data in variant_images_map[idx - 1]:
-                            self.image_repository.create_image(self.db, {
-                                "product_id": product.id,
-                                "variant_id": variant.id,
-                                "image_url": img_data.image_url,
-                                "image_path": img_data.image_path,
-                                "file_size": img_data.file_size,
-                                "mime_type": img_data.mime_type,
-                                "display_order": img_data.display_order,
-                                "is_primary": img_data.is_primary,
-                                "alt_text": img_data.alt_text,
-                                "created_by": updated_by
+                    # Prepare variant attribute mappings and images
+                    for variant_obj, variant_data in zip(created_variants, variants_to_create):
+                        # Prepare attribute mappings
+                        for value_id in variant_data["_temp_attribute_value_ids"]:
+                            variant_mappings.append({
+                                "variant_id": variant_obj.id,
+                                "attribute_value_id": value_id
                             })
+
+                        # Prepare variant images
+                        variant_idx = variant_data["_temp_variant_idx"]
+                        if variant_idx in variant_images_map:
+                            for img_data in variant_images_map[variant_idx]:
+                                variant_images_data.append({
+                                    "product_id": product.id,
+                                    "variant_id": variant_obj.id,
+                                    "image_url": img_data.image_url,
+                                    "image_path": img_data.image_path,
+                                    "file_size": img_data.file_size,
+                                    "mime_type": img_data.mime_type,
+                                    "display_order": img_data.display_order,
+                                    "is_primary": img_data.is_primary,
+                                    "alt_text": img_data.alt_text,
+                                    "created_by": updated_by
+                                })
+
+                    # BULK INSERT: Create all variant attribute mappings
+                    if variant_mappings:
+                        self.variant_repository.bulk_create_attribute_mappings(self.db, variant_mappings)
+
+                    # BULK INSERT: Create all variant images
+                    if variant_images_data:
+                        self.image_repository.bulk_create_images(self.db, variant_images_data)
 
             # 10. Commit transaction
             self.db.commit()
